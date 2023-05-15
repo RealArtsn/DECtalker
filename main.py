@@ -1,4 +1,4 @@
-import sys, os, subprocess as sp, io
+import sys, os, subprocess as sp, io, sqlite3, datetime
 import discord 
 from pydub import AudioSegment
 from discord import app_commands
@@ -12,6 +12,15 @@ class Client(discord.Client):
             await DECtalker.tree.sync()
             print('Exiting...')
             await self.close()
+    # automaticall disconnect from voice channel if empty
+    async def on_voice_state_update(member, before, after, _):
+        # disconnect if last one in channel
+        try:
+            if len(DECtalker.voice_clients[0].channel.members) == 1:
+                await DECtalker.voice_clients[0].disconnect()
+        # Event can fire when not in call
+        except IndexError:
+            pass
 
 # set gateway intents, only voice states required for voice
 intents = discord.Intents.default()
@@ -26,6 +35,7 @@ async def text_to_speech(text, user, voice_client, language, speed, voice):
         return "Not connected to a voice channel."
     if not text:
         return "Invalid input."
+    # If default values are not passed, pull args from choice values
     if not isinstance(language, str):
         language = language.value
     if not isinstance(voice, str):
@@ -61,7 +71,7 @@ async def text_to_speech(text, user, voice_client, language, speed, voice):
 # log the command to a file
 def log_command(id, message):
     with open('voice.log','a') as log:
-        log.write(message)
+        log.write(f"{datetime.datetime.now().isoformat()},{id},{message}")
 
 # In this order from 0 to 8, voices available from DECtalk binary
 DECtalker.VOICES = ('Paul','Betty','Harry', 'Frank', 'Dennis', 'Kit', 'Ursula', 'Rita', 'Wendy')
@@ -98,6 +108,7 @@ async def slash(interaction:discord.Interaction):
     app_commands.Choice(name=n, value=str(v)) for v, n in enumerate(DECtalker.VOICES)
 ])
 async def slash(interaction:discord.Interaction, text:str, language: app_commands.Choice[str] = 'us', speed:str = '1', voice: app_commands.Choice[str] = '0'):
+    log_command(interaction.user.id, text)
     # initiate text to speech in connected voice channel     
     response = await text_to_speech(
         text, 
