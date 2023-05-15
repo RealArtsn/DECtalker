@@ -12,7 +12,9 @@ class Client(discord.Client):
             await DECtalker.tree.sync()
             print('Exiting...')
             await self.close()
-    # automaticall disconnect from voice channel if empty
+        # create preference table if not existant
+        initialize_database()
+    # automatically disconnect from voice channel if empty
     async def on_voice_state_update(member, before, after, _):
         # disconnect if last one in channel
         try:
@@ -35,10 +37,16 @@ async def text_to_speech(text, user, voice_client, language, speed, voice):
         return "Not connected to a voice channel."
     if not text:
         return "Invalid input."
-    # If default values are not passed, pull args from choice values
-    if not isinstance(language, str):
+
+
+    # Get preferences from database if values are not passed
+    if language is None:
+        language = get_preference(user, 'language')
+    else:
         language = language.value
-    if not isinstance(voice, str):
+    if voice is None:
+        voice = get_preference(user, 'voice')
+    else:
         voice = voice.value
     try:
         speed = float(speed)
@@ -46,6 +54,7 @@ async def text_to_speech(text, user, voice_client, language, speed, voice):
             raise ValueError
     except ValueError:
         return "speed must be a decimal less than 3"
+    print(voice, language)
     # execute dectalk
     # phoneme on is necesary for singing
     # stdout:raw allows piping audio to discord
@@ -107,12 +116,12 @@ async def slash(interaction:discord.Interaction):
 @app_commands.choices(voice=[
     app_commands.Choice(name=n, value=str(v)) for v, n in enumerate(DECtalker.VOICES)
 ])
-async def slash(interaction:discord.Interaction, text:str, language: app_commands.Choice[str] = 'us', speed:str = '1', voice: app_commands.Choice[str] = '0'):
+async def slash(interaction:discord.Interaction, text:str, language: app_commands.Choice[str] = None, speed:str = '1', voice: app_commands.Choice[str] = None):
     log_command(interaction.user.id, text)
     # initiate text to speech in connected voice channel     
     response = await text_to_speech(
         text, 
-        interaction.user,
+        interaction.user.id,
         voice_client=DECtalker.voice_clients[0], 
         language=language, 
         speed=speed, 
@@ -120,11 +129,57 @@ async def slash(interaction:discord.Interaction, text:str, language: app_command
     )
     await interaction.response.send_message(response, ephemeral=True)
 
+# command to store tts preferences in sql table
+@DECtalker.tree.command(name = "voice_preference", description = "Text to speech language preference")
+@app_commands.choices(language=[
+    app_commands.Choice(name='English (US)', value='us'),
+    app_commands.Choice(name='English (UK)', value='uk'),
+    app_commands.Choice(name='Spanish', value='sp'),
+    app_commands.Choice(name='German', value='gr'),
+    app_commands.Choice(name='French', value='fr'),
+    app_commands.Choice(name='Latin', value='la')
+])
+@app_commands.choices(voice=[
+    app_commands.Choice(name=n, value=str(v)) for v, n in enumerate(DECtalker.VOICES)
+])
+async def slash(interaction:discord.Interaction, language: app_commands.Choice[str], voice: app_commands.Choice[str]):
+    response = f'Language preference set to: \n{language.name}\n{voice.name}'
+    print(f'{interaction.user.name} in {interaction.guild.name} swapped TTS preference to: {language.name}, {voice.name}')
+    update_preferences(interaction.user.id, language.value, voice.value)
+    await interaction.response.send_message(response, ephemeral=True)
+    return
+
+# wrapper to execute query on the database
+def run_query(query):
+    con = sqlite3.connect('DECtalker.db')
+    cur = con.cursor()
+    response = cur.execute(query).fetchall()
+    con.commit()
+    con.close()
+    return response
+
+def initialize_database():
+    query = 'CREATE TABLE IF NOT EXISTS preferences (id TEXT PRIMARY KEY UNIQUE, language TEXT DEFAULT "us", voice TEXT DEFAULT "0")'
+    run_query(query)
+
+def update_preferences(id, language, voice):
+    validate_user(id)
+    run_query(f'UPDATE preferences SET language = "{language}", voice = "{voice}" WHERE id = "{id}"')
+
+def get_preference(id, preference):
+    # validate user to generate preferences if none exist
+    validate_user(id)
+    return run_query(f'SELECT {preference} FROM preferences WHERE id = "{id}"')[0][0]
+    
+# add user to table if not exists
+def validate_user(id):
+    run_query(f'INSERT OR IGNORE INTO preferences(id) VALUES("{id}")')
+
 
 # Run with token or prompt if one does not exist
 try:
     with open('token', 'r') as token:
-        DECtalker.run(token.read())        
+        DECtalker.run(token.read())
 except FileNotFoundError:
     print('Token not found. Input bot token and press enter or place it in a plaintext file named `token`.')
     token_text = input('Paste token: ')
