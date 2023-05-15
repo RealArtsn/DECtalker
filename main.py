@@ -80,7 +80,7 @@ async def text_to_speech(text, user, voice_client, language, speed, voice):
 # log the command to a file
 def log_command(id, message):
     with open('voice.log','a') as log:
-        log.write(f"{datetime.datetime.now().isoformat()},{id},{message}")
+        log.write(f"{datetime.datetime.now().isoformat()},{id},{message}\n")
 
 # In this order from 0 to 8, voices available from DECtalk binary
 DECtalker.VOICES = ('Paul','Betty','Harry', 'Frank', 'Dennis', 'Kit', 'Ursula', 'Rita', 'Wendy')
