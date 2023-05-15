@@ -101,17 +101,17 @@ async def slash(interaction:discord.Interaction):
     await interaction.response.send_message('Disconnecting...', ephemeral=True)
     for voice_client in DECtalker.voice_clients:
         await voice_client.disconnect()
-
-# Speak in voice channel
-@DECtalker.tree.command(name = "say", description = "Text to speech")
-@app_commands.choices(language=[
+DECtalker.language_choices = [
     app_commands.Choice(name='English (US)', value='us'),
     app_commands.Choice(name='English (UK)', value='uk'),
     app_commands.Choice(name='Spanish', value='sp'),
     app_commands.Choice(name='German', value='gr'),
     app_commands.Choice(name='French', value='fr'),
     app_commands.Choice(name='Latin', value='la')
-])
+]
+# Speak in voice channel
+@DECtalker.tree.command(name = "say", description = "Text to speech")
+@app_commands.choices(language=DECtalker.language_choices)
 # dectalk takes a value from 0-9 for a voice
 @app_commands.choices(voice=[
     app_commands.Choice(name=n, value=str(v)) for v, n in enumerate(DECtalker.VOICES)
@@ -131,14 +131,7 @@ async def slash(interaction:discord.Interaction, text:str, language: app_command
 
 # command to store tts preferences in sql table
 @DECtalker.tree.command(name = "voice_preference", description = "Text to speech language preference")
-@app_commands.choices(language=[
-    app_commands.Choice(name='English (US)', value='us'),
-    app_commands.Choice(name='English (UK)', value='uk'),
-    app_commands.Choice(name='Spanish', value='sp'),
-    app_commands.Choice(name='German', value='gr'),
-    app_commands.Choice(name='French', value='fr'),
-    app_commands.Choice(name='Latin', value='la')
-])
+@app_commands.choices(language=DECtalker.language_choices)
 @app_commands.choices(voice=[
     app_commands.Choice(name=n, value=str(v)) for v, n in enumerate(DECtalker.VOICES)
 ])
