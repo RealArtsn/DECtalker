@@ -186,6 +186,3 @@ except FileNotFoundError:
     with open('token','w') as f:
         f.write(token_text)
         DECtalker.run(token_text)
-except discord.errors.LoginFailure:
-    print('Login failed. Generate a new token.')
-    os.remove('token')
