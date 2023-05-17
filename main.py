@@ -2,6 +2,8 @@ import sys, os, subprocess as sp, io, sqlite3, datetime
 import discord 
 from pydub import AudioSegment
 from discord import app_commands
+import logging
+
 
 class Client(discord.Client):
     async def on_ready(self):
@@ -29,6 +31,10 @@ intents = discord.Intents.default()
 intents.voice_states = True
 DECtalker = Client(intents=intents)
 
+# logging handler
+DECtalker.log_handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+
+
 # slash command tree
 DECtalker.tree = app_commands.CommandTree(DECtalker)
 
@@ -54,7 +60,6 @@ async def text_to_speech(text, user, voice_client, language, speed, voice):
             raise ValueError
     except ValueError:
         return "speed must be a decimal less than 3"
-    print(voice, language)
     # execute dectalk
     # phoneme on is necesary for singing
     # stdout:raw allows piping audio to discord
@@ -85,7 +90,7 @@ def log_command(id, message):
 # In this order from 0 to 8, voices available from DECtalk binary
 DECtalker.VOICES = ('Paul','Betty','Harry', 'Frank', 'Dennis', 'Kit', 'Ursula', 'Rita', 'Wendy')
 
-# connect to voice channel channel of interaction user
+# connect to voice channel of interaction user
 @DECtalker.tree.command(name = "connect", description = "Connects to voice channel.")
 async def slash(interaction:discord.Interaction):
     # disconnect all existing voice clients
@@ -172,10 +177,10 @@ def validate_user(id):
 # Run with token or prompt if one does not exist
 try:
     with open('token', 'r') as token:
-        DECtalker.run(token.read())
+        DECtalker.run(token.read(), log_handler=DECtalker.log_handler)
 except FileNotFoundError:
     print('Token not found. Input bot token and press enter or place it in a plaintext file named `token`.')
     token_text = input('Paste token: ')
     with open('token','w') as f:
         f.write(token_text)
-        DECtalker.run(token_text)
+        DECtalker.run(token_text, log_handler=DECtalker.log_handler)
